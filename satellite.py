@@ -7,11 +7,13 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pandas as pd
 import numpy as np
-from skyfield.api import load
+from skyfield.api import load, wgs84, utc
 
 from config import STARLINK_GRPC_ADDR_PORT, TLE_URL, TLE_DATA_DIR, DURATION_SECONDS, DISH_ID
 from util import date_time_string, ensure_directory, ensure_data_directory
+from fov import estimate
 
 sys.path.insert(0,str(Path('./starlink-grpc-tools').resolve()))
 import starlink_grpc
@@ -43,7 +45,12 @@ def capture_snr_data(duration_seconds, interval_seconds, context):
 def save_white_pixel_coordinates_xor(directory, filename, snapshots, start_time):
     start_time_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
     previous_snr_data = np.zeros_like(snapshots[0][1])
-    white_pixel_coords = []
+
+    observer_x, observer_y = 62, 62  # Assume this is the observer's pixel location
+    pixel_to_degrees = (80/62)  # Conversion factor from pixel to degrees
+
+    merged_data_df = pd.DataFrame(columns=['Timestamp', 'Y', 'X', 'Elevation', 'Azimuth'])
+    results = []
 
     with open("{}/obstruction-data-{}-{}.csv".format(directory, DISH_ID, filename), 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
@@ -62,12 +69,51 @@ def save_white_pixel_coordinates_xor(directory, filename, snapshots, start_time)
             else:
                 continue  # If both coords is empty and hold_coord is None, skip this iteration
 
-            white_pixel_coords.append((start_time_dt + timedelta(seconds=i), tuple(coord)))
+            # white_pixel_coords.append((start_time_dt + timedelta(seconds=i), tuple(coord)))
             previous_snr_data = snr_data
             i += 1
 
-        for coord in white_pixel_coords:
-            writer.writerow([coord[0].strftime("%Y-%m-%d %H:%M:%S"), coord[1][0], coord[1][1]])
+            Y = coord[0]
+            X = coord[1]
+
+            dx, dy = X - observer_x, (123 - Y) - observer_y
+            radius = np.sqrt(dx**2 + dy**2) * pixel_to_degrees
+            azimuth = np.degrees(np.arctan2(dx, dy))
+            # Normalize the azimuth to ensure it's within 0 to 360 degrees
+            azimuth = (azimuth + 360) % 360
+            elevation = 90 - radius
+
+            timestamp = pd.to_datetime(start_time_dt + timedelta(seconds=i), utc=True)
+            record = {
+                "Timestamp": timestamp,
+                "Y": Y,
+                "X": X,
+                "Elevation": elevation,
+                "Azimuth": azimuth
+            }
+            if merged_data_df.empty:
+                # Initialize the DataFrame with the new record if it's empty
+                merged_data_df = pd.DataFrame([record])
+            else:
+                # Otherwise, append the new record to the existing DataFrame
+                merged_data_df = pd.concat([merged_data_df, pd.DataFrame([record])], ignore_index=True)
+            # merged_data_df = pd.concat([merged_data_df, pd.DataFrame([record])], ignore_index=True)
+            writer.writerow([timestamp, Y, X, elevation, azimuth])
+
+            current_time = datetime.now(timezone.utc)
+            print(f"Processing data for {current_time}")
+            observed_positions_with_timestamps, matching_satellites, distances = estimate(current_time.year, current_time.month, current_time.day, current_time.hour, current_time.minute, current_time.second, merged_data_df, satellites)
+            if matching_satellites:
+                for second in range(15):
+                    if second < len(distances):
+                        record = {
+                            'Timestamp': current_time + timedelta(seconds=second),
+                            'Connected_Satellite': matching_satellites[0],
+                            'Distance': distances[second]
+                        }
+                        results.append(record)
+                        print(record)
+
 
 
 def wait_until_target_time():

@@ -8,7 +8,6 @@ import math
 import os
 import sys
 from pathlib import Path
-from satellite import load_satellites
 from config import STARLINK_GRPC_ADDR_PORT, TLE_URL, TLE_DATA_DIR, DURATION_SECONDS, DISH_ID
 from util import date_time_string, ensure_directory, ensure_data_directory
 
@@ -64,18 +63,19 @@ def preprocess_observed_data(filename):
     return df_positions
 
 
-def process_observed_data(filename, start_time, merged_data_df):
-    data = pd.read_csv(filename, sep=',', header=None, names=['Timestamp', 'Y', 'X'])
-    data['Timestamp'] = pd.to_datetime(data['Timestamp'], utc=True)
+def process_observed_data(start_time, merged_data_df):
+    # data = pd.read_csv(filename, sep=',', header=None, names=['Timestamp', 'Y', 'X'])
+    # data['Timestamp'] = pd.to_datetime(data['Timestamp'], utc=True)
     interval_start_time = pd.to_datetime(start_time, utc=True)
     interval_end_time = interval_start_time + pd.Timedelta(seconds=14)
-    filtered_data = data[(data['Timestamp'] >= interval_start_time) & (data['Timestamp'] < interval_end_time)]
-    if filtered_data.empty:
-        print("No data found.")
-        return None
+    # filtered_data = data[(data['Timestamp'] >= interval_start_time) & (data['Timestamp'] < interval_end_time)]
+    # if filtered_data.empty:
+    #     print("No data found.")
+    #     return None
 
-    merged_data_df['Timestamp'] = pd.to_datetime(merged_data_df['Timestamp'], utc=True)
-    merged_filtered_data = merged_data_df[(merged_data_df['Timestamp'] >= interval_start_time) & (merged_data_df['Timestamp'] < interval_end_time)]
+    # merged_data_df['Timestamp'] = pd.to_datetime(merged_data_df['Timestamp'], utc=True)
+    # merged_filtered_data = merged_data_df[(merged_data_df['Timestamp'] >= interval_start_time) & (merged_data_df['Timestamp'] < interval_end_time)]
+    merged_filtered_data = merged_data_df
 
     if merged_filtered_data.empty:
         print("No matching data found in merged_data_file.")
@@ -188,11 +188,13 @@ def calculate_distance_for_best_match(satellite, observer_location, start_time, 
     return distances
 
 
-def estimate(filename, year, month, day, hour, minute, second, merged_data_df, satellites):
+def estimate(year, month, day, hour, minute, second, merged_data_df, satellites):
+    get_dish_status()
+
     initial_time = set_observation_time(year, month, day, hour, minute, second)
     observer_location =wgs84.latlon(latitude_degrees=_lat, longitude_degrees= _lon, elevation_m=_alt)
     interval_seconds = 15
-    observed_positions_with_timestamps = process_observed_data(filename, initial_time.utc_strftime('%Y-%m-%dT%H:%M:%SZ'), merged_data_df)
+    observed_positions_with_timestamps = process_observed_data(initial_time.utc_strftime('%Y-%m-%dT%H:%M:%SZ'), merged_data_df)
     if observed_positions_with_timestamps is None:
         return [], [], []
 
@@ -205,7 +207,7 @@ def estimate(filename, year, month, day, hour, minute, second, merged_data_df, s
 
     return observed_positions_with_timestamps, matching_satellites, distances
 
-def process_intervals(filename, start_year, start_month, start_day, start_hour, start_minute, start_second, end_year, end_month, end_day, end_hour, end_minute, end_second, merged_data_df, satellites):
+def process_intervals(start_year, start_month, start_day, start_hour, start_minute, start_second, end_year, end_month, end_day, end_hour, end_minute, end_second, merged_data_df, satellites):
     results = []
 
     start_time = datetime(start_year, start_month, start_day, start_hour, start_minute, start_second, tzinfo=utc)
@@ -214,7 +216,7 @@ def process_intervals(filename, start_year, start_month, start_day, start_hour, 
 
     while current_time <= end_time:
         print(f"Processing data for {current_time}")
-        observed_positions_with_timestamps, matching_satellites, distances = estimate(filename, current_time.year, current_time.month, current_time.day, current_time.hour, current_time.minute, current_time.second, merged_data_df, satellites)
+        observed_positions_with_timestamps, matching_satellites, distances = estimate(current_time.year, current_time.month, current_time.day, current_time.hour, current_time.minute, current_time.second, merged_data_df, satellites)
         if matching_satellites:
             for second in range(15):
                 if second < len(distances):
@@ -239,7 +241,7 @@ def get_dish_status():
     context = starlink_grpc.ChannelContext(target=STARLINK_GRPC_ADDR_PORT)
     location = starlink_grpc.get_location(context)
     if "lla" in location:
-        print("Dish location:", location)
+        # print("Dish location:", location)
         _lat = location.lla.lat
         _lon = location.lla.lon
         _alt = location.lla.alt
@@ -248,7 +250,7 @@ def get_dish_status():
         exit(1)
 
     dish_status = starlink_grpc.get_status(context)
-    print("Dish alignment status:", dish_status.alignment_stats)
+    # print("Dish alignment status:", dish_status.alignment_stats)
     _tilt = dish_status.alignment_stats.tilt_angle_deg
     _rotation_az = dish_status.alignment_stats.boresight_azimuth_deg
     if not _tilt or not _rotation_az:
@@ -256,23 +258,23 @@ def get_dish_status():
         exit(1)
 
 
-if __name__ == "__main__":
-    get_dish_status()
-    satellites = load_satellites()
+# if __name__ == "__main__":
+#     # get_dish_status()
+#     # satellites = load_satellites()
 
-    filename = "data/obstruction-data-victoria-2024-11-06-00-00-04.csv"
-    merged_data_df = preprocess_observed_data(filename)
-    if merged_data_df.empty:
-        print("No valid observed data found.")
-        exit(1)
+#     filename = "data/obstruction-data-victoria-2024-11-06-00-00-04.csv"
+#     merged_data_df = preprocess_observed_data(filename)
+#     if merged_data_df.empty:
+#         print("No valid observed data found.")
+#         exit(1)
 
-    result_df = process_intervals(filename, _first_year, _first_month, _first_day,  _first_hour, _first_minute,_first_second, _last_year, _last_month, _last_day,  _last_hour, _last_minute,_last_second, merged_data_df, satellites)
+#     result_df = process_intervals(filename, _first_year, _first_month, _first_day,  _first_hour, _first_minute,_first_second, _last_year, _last_month, _last_day,  _last_hour, _last_minute,_last_second, merged_data_df, satellites)
 
-    existing_df = pd.DataFrame()
-    merged_df = pd.merge(merged_data_df, result_df, on='Timestamp', how='inner')
+#     existing_df = pd.DataFrame()
+#     merged_df = pd.merge(merged_data_df, result_df, on='Timestamp', how='inner')
 
-    updated_df = pd.concat([existing_df, merged_df]).drop_duplicates(subset=['Timestamp'], keep='last')
+#     updated_df = pd.concat([existing_df, merged_df]).drop_duplicates(subset=['Timestamp'], keep='last')
 
-    updated_df.to_csv('serving_satellite_data_2024-10-12-04-00-05.csv', index=False)
+#     updated_df.to_csv('serving_satellite_data_2024-10-12-04-00-05.csv', index=False)
 
-    print("Updated data saved to 'serving_satellite_data_ulukhaktok-2024-10-12-04-00-05.csv'")
+#     print("Updated data saved to 'serving_satellite_data_ulukhaktok-2024-10-12-04-00-05.csv'")
