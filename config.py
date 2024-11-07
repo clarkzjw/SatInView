@@ -5,7 +5,7 @@ from datetime import timedelta
 
 
 # Interface connected to Starlink
-IFCE = os.getenv("IFCE", "eth0")
+IFCE = os.getenv("IFCE", "en0")
 # name the dish
 DISH_ID = os.getenv("DISH_ID", "test")
 

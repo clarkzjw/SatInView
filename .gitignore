@@ -1,4 +1,6 @@
 .ipynb_checkpoints
+.idea/
+data_bak/
 __pycache__/
 findmatch-FrameEarth.ipynb
 starlink-grpc-tools/__pycache__/

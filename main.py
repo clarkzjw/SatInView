@@ -23,13 +23,14 @@ schedule.every(1).hours.at(":00").do(run, collect_obstruction_data).tag("TLE")
 
 
 if __name__ == "__main__":
-    for job in schedule.get_jobs("Latency"):
-        logger.info("[Latency]: {}".format(job.next_run))
-    for job in schedule.get_jobs("TLE"):
-        logger.info("[TLE]: {}".format(job.next_run))
-    for job in schedule.get_jobs("gRPC"):
-        logger.info("[gRPC]: {}".format(job.next_run))
+    collect_obstruction_data()
+    # for job in schedule.get_jobs("Latency"):
+    #     logger.info("[Latency]: {}".format(job.next_run))
+    # for job in schedule.get_jobs("TLE"):
+    #     logger.info("[TLE]: {}".format(job.next_run))
+    # for job in schedule.get_jobs("gRPC"):
+    #     logger.info("[gRPC]: {}".format(job.next_run))
 
-    while True:
-        schedule.run_pending()
-        time.sleep(0.5)
+    # while True:
+    #     schedule.run_pending()
+    #     time.sleep(0.5)

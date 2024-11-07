@@ -22,19 +22,19 @@ _lon = None
 _alt = None
 
 # Srart of first 15 second interval
-_first_year=2024
-_first_month=11
-_first_day=6
-_first_hour=0
-_first_minute=0
-_first_second=12
-# Srart of last 15 second interval
-_last_year=2024
-_last_month=11
-_last_day=6
-_last_hour=0
-_last_minute=1
-_last_second=57
+# _first_year=2024
+# _first_month=11
+# _first_day=6
+# _first_hour=0
+# _first_minute=0
+# _first_second=12
+# # Srart of last 15 second interval
+# _last_year=2024
+# _last_month=11
+# _last_day=6
+# _last_hour=0
+# _last_minute=1
+# _last_second=57
 
 
 def set_observation_time(year, month, day, hour, minute, second):
