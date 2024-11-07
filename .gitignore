@@ -1,5 +1,6 @@
 .ipynb_checkpoints
 .idea/
+connected_satellite.csv
 data_bak/
 __pycache__/
 findmatch-FrameEarth.ipynb
