@@ -6,15 +6,22 @@ import pandas as pd
 import numpy as np
 import math
 import os
+import sys
+from pathlib import Path
+from satellite import load_satellites
+from config import STARLINK_GRPC_ADDR_PORT, TLE_URL, TLE_DATA_DIR, DURATION_SECONDS, DISH_ID
+from util import date_time_string, ensure_directory, ensure_data_directory
+
+sys.path.insert(0,str(Path('./starlink-grpc-tools').resolve()))
+import starlink_grpc
 
 
+_tilt = None
+_rotation_az = None
+_lat = None
+_lon = None
+_alt = None
 
-# your UT's orientation
-_tilt = 21.753338
-_rotation_az = 0.63392365
-_lat=  70.73773262021375
-_lon= -117.76558512518646
-_alt= 53
 # Srart of first 15 second interval
 _first_year=2024
 _first_month=11
@@ -27,14 +34,8 @@ _last_year=2024
 _last_month=11
 _last_day=6
 _last_hour=0
-_last_minute=2
+_last_minute=1
 _last_second=57
-
-
-def load_data():
-    stations_url = 'data/starlink-tle-2024-11-06-00-00-00.txt'
-    satellites = load.tle_file(stations_url)
-    return satellites
 
 
 def set_observation_time(year, month, day, hour, minute, second):
@@ -73,7 +74,6 @@ def process_observed_data(filename, start_time, merged_data_df):
         print("No data found.")
         return None
 
-    # merged_data = pd.read_csv(merged_data_file, parse_dates=['Timestamp'])
     merged_data_df['Timestamp'] = pd.to_datetime(merged_data_df['Timestamp'], utc=True)
     merged_filtered_data = merged_data_df[(merged_data_df['Timestamp'] >= interval_start_time) & (merged_data_df['Timestamp'] < interval_end_time)]
 
@@ -170,7 +170,6 @@ def find_matching_satellites(satellites, observer_location, observed_positions_w
                 [(90 - data[0], data[1]) for _, data in observed_positions_with_timestamps],
                 satellite_positions
             )
-            # print(satellite.name, ": ", total_difference)
             if total_difference < closest_total_difference:
                 closest_total_difference = total_difference
                 best_match = satellite.name
@@ -230,14 +229,42 @@ def process_intervals(filename, start_year, start_month, start_day, start_hour, 
     return result_df
 
 
+def get_dish_status():
+    global _lat
+    global _lon
+    global _alt
+    global _tilt
+    global _rotation_az
+
+    context = starlink_grpc.ChannelContext(target=STARLINK_GRPC_ADDR_PORT)
+    location = starlink_grpc.get_location(context)
+    if "lla" in location:
+        print("Dish location:", location)
+        _lat = location.lla.lat
+        _lon = location.lla.lon
+        _alt = location.lla.alt
+    else:
+        print("Get dish location failed")
+        exit(1)
+
+    dish_status = starlink_grpc.get_status(context)
+    print("Dish alignment status:", dish_status.alignment_stats)
+    _tilt = dish_status.alignment_stats.tilt_angle_deg
+    _rotation_az = dish_status.alignment_stats.boresight_azimuth_deg
+    if not _tilt or not _rotation_az:
+        print("Get dish alignment stats failed")
+        exit(1)
+
+
 if __name__ == "__main__":
+    get_dish_status()
+    satellites = load_satellites()
+
     filename = "data/obstruction-data-victoria-2024-11-06-00-00-04.csv"
     merged_data_df = preprocess_observed_data(filename)
     if merged_data_df.empty:
         print("No valid observed data found.")
         exit(1)
-
-    satellites = load_data()
 
     result_df = process_intervals(filename, _first_year, _first_month, _first_day,  _first_hour, _first_minute,_first_second, _last_year, _last_month, _last_day,  _last_hour, _last_minute,_last_second, merged_data_df, satellites)
 
@@ -246,6 +273,6 @@ if __name__ == "__main__":
 
     updated_df = pd.concat([existing_df, merged_df]).drop_duplicates(subset=['Timestamp'], keep='last')
 
-    updated_df.to_csv('serving_satellite_data_ulukhaktok-2024-10-12-04-00-05.csv', index=False)
+    updated_df.to_csv('serving_satellite_data_2024-10-12-04-00-05.csv', index=False)
 
     print("Updated data saved to 'serving_satellite_data_ulukhaktok-2024-10-12-04-00-05.csv'")

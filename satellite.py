@@ -84,6 +84,7 @@ def load_satellites():
     directory = Path(TLE_DATA_DIR).joinpath(ensure_data_directory(TLE_DATA_DIR))
     satellites = load.tle_file(TLE_URL, True, "{}/starlink-tle-{}.txt".format(directory, date_time_string()))
     logging.info("Loaded {} Starlink satellites".format(len(satellites)))
+    return satellites
 
 
 def collect_obstruction_data():
