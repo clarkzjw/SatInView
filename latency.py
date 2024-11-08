@@ -8,7 +8,7 @@ from datetime import datetime
 import schedule
 
 from config import INTERVAL_MS, INTERVAL_SEC, DURATION, DURATION_SECONDS, IFCE, IRTT_SERVER_PORT, DATA_DIR, IRTT_LOCAL_IP, \
-    COUNT, LOCAL_IP, STARLINK_DEFAULT_GW, ENABLE_IRTT
+    COUNT, LOCAL_IP, STARLINK_DEFAULT_GW, ENABLE_IRTT, UDP_TARGET
 from util import date_time_string, ensure_data_directory, failed
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ def iperf3() -> None:
     print(datetime.now(), "iperf3", threading.current_thread())
     FILENAME = "{}/{}/iperf3-{}-{}.json".format(LATENCY_DATA_DIR, ensure_data_directory(LATENCY_DATA_DIR), DURATION, date_time_string())
     try:
-        subprocess.check_output(["iperf3", "-c", IPERF3_HOST, "-R", "-u", "-b", "10M", "-i", "0.1", "--logfile", FILENAME, "-J", "--timestamp", "-t", str(DURATION_SECONDS)])
+        subprocess.check_output(["iperf3", "-c", IPERF3_HOST, "-R", "-u", "-b", UDP_TARGET, "-i", "0.1", "--logfile", FILENAME, "-J", "--timestamp", "-t", str(DURATION_SECONDS)])
     except Exception as e:
         failed(e)
 

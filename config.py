@@ -26,7 +26,8 @@ TLE_DATA_DIR = Path(DATA_DIR).joinpath("TLE")
 TLE_URL = "https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=tle"
 
 INTERVAL_MS = os.getenv("INTERVAL", "10ms")
-DURATION = os.getenv("DURATION", "1m")
+DURATION = os.getenv("DURATION", "2m")
+UDP_TARGET = os.getenv("UDP_TARGET", "10M")
 
 IPERF_LOCAL_IP = LOCAL_IP
 IRTT_LOCAL_IP = None

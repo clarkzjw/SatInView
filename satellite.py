@@ -63,6 +63,10 @@ def process_observed_data(start_time, merged_data_df):
         print("No matching data found in merged_data_file.")
         return None
 
+    if len(merged_filtered_data) < 3:
+        print("Not enough data points to process.")
+        return None
+
     start_data = merged_filtered_data.iloc[0]
     middle_data = merged_filtered_data.iloc[len(merged_filtered_data)//2]
     end_data = merged_filtered_data.iloc[-1]
@@ -259,7 +263,8 @@ def get_connected_satellite(coord, timestamp, merged_data_df):
 
         }
         return merged_data_df, result
-
+    else:
+        return merged_data_df, None
 
 def capture_snr_data(duration_seconds, interval_seconds, context):
     snapshots = []
@@ -273,10 +278,12 @@ def capture_snr_data(duration_seconds, interval_seconds, context):
         writer = csv.writer(f)
         while time.time() < end_time:
             try:
+                print(datetime.now(timezone.utc))
                 snr_data = starlink_grpc.obstruction_map(context)
                 snr_data_array = np.array(snr_data, dtype=int)
                 snr_data_array[snr_data_array == -1] = 0
                 snapshots.append(snr_data_array)
+                print(len(snr_data_array))
 
                 xor_snr_data = np.bitwise_xor(previous_snr_data, snr_data_array)
                 previous_snr_data = snr_data_array
@@ -394,7 +401,7 @@ def collect_obstruction_data():
     context = starlink_grpc.ChannelContext(target=STARLINK_GRPC_ADDR_PORT)
 
     timeslot_duration_seconds = 14
-    interval_seconds = 0.5  # Capture a snapshot every 1 second
+    interval_seconds = 1  # Capture a snapshot every 1 second
 
     round = 0
 
