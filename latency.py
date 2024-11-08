@@ -1,3 +1,4 @@
+import os
 import logging
 import ipaddress
 import subprocess
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 LATENCY_DATA_DIR = "{}/latency".format(DATA_DIR)
+IPERF3_HOST = os.getenv("IPERF3_SERVER", "2600:3c0a::f03c:93ff:fe98:751b")
 
 
 def setup():
@@ -61,3 +63,13 @@ def icmp_ping() -> None:
         pass
 
     logger.info("[{}] Next scheduled run at {}".format(name, schedule.next_run()))
+
+def iperf3() -> None:
+    print(datetime.now(), "iperf3", threading.current_thread())
+    FILENAME = "{}/{}/iperf3-{}-{}.json".format(LATENCY_DATA_DIR, ensure_data_directory(LATENCY_DATA_DIR), DURATION, date_time_string())
+    try:
+        subprocess.check_output(["iperf3", "-c", IPERF3_HOST, "-R", "-u", "-b", "10M", "-i", "0.1", "--logfile", FILENAME, "-J", "--timestamp", "-t", str(DURATION_SECONDS)])
+    except Exception as e:
+        failed(e)
+
+    print("next run", schedule.next_run())
