@@ -1,5 +1,6 @@
 .ipynb_checkpoints
 .idea/
+*.png
 connected_satellite.csv
 data_bak/
 __pycache__/
